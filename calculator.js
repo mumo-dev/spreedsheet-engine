@@ -34,34 +34,53 @@ class Calculator {
     ) {
       const firstParam = parsedExpression[0];
       const opsIsAOperator = isAnOperation(firstParam);
+      const opsIsAFunction = isFunction(firstParam);
 
       if (opsIsAOperator) {
         // get value of left and right and evaluate
         const first = new dt.ValueEvaluator(parsedExpression[1]).evaluate();
         const second = new dt.ValueEvaluator(parsedExpression[2]).evaluate();
-        const hander = new OperationHandler(firstParam, first, second);
-        return hander.evaluate();
-      }
-
-      const opsIsAFunction = isFunction(firstParam);
-
-      if (opsIsAFunction) {
-        
-        const handler = new FunctionHandler(
+        return this.solveOperationExpression(firstParam, first, second);
+      } else if (opsIsAFunction) {
+        return this.solveFunctionExpression(
           firstParam,
           parsedExpression.slice(1)
         );
-
-        return handler.evaluate();
       }
     }
 
     // TODO handle functions
     // get operations,
-    const operation = parsedExpression[0];
-    const first = this.evaluateFormula(parsedExpression[1]);
-    const second = this.evaluateFormula(parsedExpression[2]);
-    return this.solveExpression(operation, first, second);
+    const firstParam = parsedExpression[0];
+    const opsIsAOperator = isAnOperation(firstParam);
+    const opsIsAFunction = isFunction(firstParam);
+
+    if (opsIsAOperator) {
+      const first = this.evaluateFormula(parsedExpression[1]);
+      const second = this.evaluateFormula(parsedExpression[2]);
+      return this.solveOperationExpression(firstParam, first, second);
+    } else if (opsIsAFunction) {
+      // get all params from index 1, call evaluate formula on the and store result
+      const paramValues = [];
+      for (let value of parsedExpression.slice(1)) {
+        const evaluationResult = this.evaluateFormula(value);
+        paramValues.push(evaluationResult);
+      }
+      return this.solveFunctionExpression(firstParam, ...paramValues);
+    } else {
+      throw new error.OperationError(
+        ops + " is not a supported operation or function"
+      );
+    }
+  }
+
+  solveFunctionExpression(functionName, ...values) {
+    const handler = new FunctionHandler(functionName, values);
+    return handler.evaluate();
+  }
+
+  solveOperationExpression(ops, first, second) {
+    return new OperationHandler(ops, first, second).evaluate();
   }
 
   solveExpression(ops, ...values) {
@@ -71,7 +90,7 @@ class Calculator {
     if (opsIsAOperator) {
       const first = values[0];
       const second = values[1];
-      return new OperationHandler(ops, first, second).evaluate();
+      return this.solveExpression(ops, first, second);
     }
 
     const opsIsAFunction = isFunction(ops);
@@ -93,14 +112,27 @@ class Calculator {
     return false;
   }
 
+  isAFunctionBaseCase(expression) {
+    for (let value of expression.slice(1)) {
+      if (Array.isArray(value)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   expressionIsABaseCase(expression) {
     const firstParam = expression[0];
 
-    if (isAnOperation(firstParam) && this.isOperationBaseCase(expression)) {
-      return true;
+    if (isAnOperation(firstParam)) {
+      return this.isOperationBaseCase(expression);
+    } else if (isFunction(firstParam)) {
+      return this.isAFunctionBaseCase(expression);
+    } else {
+      throw new error.OperationError(
+        ops + " is not a supported operation or function"
+      );
     }
-    // TODO check for functions
-    return false;
   }
 }
 
